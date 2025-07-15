@@ -1,3 +1,3 @@
-# dappStarter
+# dappLottery
 
-this is a dapp project starter
+A decentralized lottery app
