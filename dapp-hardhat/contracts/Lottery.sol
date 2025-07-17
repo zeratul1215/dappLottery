@@ -9,14 +9,23 @@ pragma solidity ^0.8.0;
 
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
 error Lottery__NotEnoughEthEntered();
+error Lottery__TransferFailed();
+error Lottery__RefundFailed();
+error Lottery__NotOpen();
+error Lottery__UpkeepNotNeeded();
 
-contract Lottery is VRFConsumerBaseV2Plus {
+contract Lottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
+    enum LotteryState {
+        OPEN,
+        CALCULATING
+    }
+
     //state variables
     uint256 private immutable i_entranceFee;
     address payable[] private s_players;
-
     uint256 private s_subscriptionId;
     // Sepolia coordinator.
     address public immutable vrfCoordinator =
@@ -27,8 +36,17 @@ contract Lottery is VRFConsumerBaseV2Plus {
     uint16 private constant requestConfirmations = 3;
     uint32 private constant numWords = 1;
 
+    uint256 private constant INTERVAL = 1800; // 30 minutes
+    uint256 private s_lastTimeStamp;
+
+    //lottery variables
+    address private s_recentWinner;
+    LotteryState private s_lotteryState;
+
     //events
     event LotteryEnter(address indexed player);
+    event RequestedLotteryWinner(uint256 indexed requestId);
+    event WinnerPicked(address indexed winner);
 
     constructor(
         uint256 entranceFee,
@@ -36,20 +54,58 @@ contract Lottery is VRFConsumerBaseV2Plus {
     ) VRFConsumerBaseV2Plus(vrfCoordinator) {
         i_entranceFee = entranceFee;
         s_subscriptionId = subscriptionId;
+        s_lotteryState = LotteryState.OPEN;
+        s_lastTimeStamp = block.timestamp;
     }
 
-    function enterLottery() public payable enoughEntranceFee {
+    function enterLottery() public payable onlyWhenOpen enoughEntranceFee {
         s_players.push(payable(msg.sender));
+        // refund part of the eth that is more than the entrance fee
+        if (msg.value > i_entranceFee) {
+            (bool success, ) = payable(msg.sender).call{
+                value: msg.value - i_entranceFee
+            }("");
+            if (!success) {
+                revert Lottery__RefundFailed();
+            }
+        }
         //events emit event when update a dynamic variable like array
         // named event with the function name reversed
         emit LotteryEnter(msg.sender);
     }
 
+    //for the chainlink keeper to check if the performUpkeep should be called
+    // 1. time interval should have passed
+    // 2. lottery should have at least 1 player and some ETH
+    // 3. the subscription is funded with LINK
+    // 4. lottery should be in the "open" state
+    function checkUpkeep(
+        bytes memory /* performData */
+    )
+        public
+        view
+        override
+        returns (bool upkeepNeeded, bytes memory /* performData */)
+    {
+        bool isOpen = s_lotteryState == LotteryState.OPEN;
+        bool timePassed = (block.timestamp - s_lastTimeStamp) > INTERVAL;
+        bool hasPlayers = s_players.length > 0;
+        bool hasBalance = address(this).balance > 0;
+        upkeepNeeded = (isOpen && timePassed && hasPlayers && hasBalance);
+        return (upkeepNeeded, "0x0");
+    }
+
     // only send the request
-    function requestRandomWinner() external {
+    function performUpkeep(bytes calldata /* performData */) external override {
+        (bool upkeepNeeded, ) = checkUpkeep("");
+        if (!upkeepNeeded) {
+            revert Lottery__UpkeepNotNeeded();
+        }
+
+        s_lotteryState = LotteryState.CALCULATING;
         // pick a random number
         // do something with it
-        s_vrfCoordinator.requestRandomWords(
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: i_keyHash,
                 subId: s_subscriptionId,
@@ -62,17 +118,30 @@ contract Lottery is VRFConsumerBaseV2Plus {
                 )
             })
         );
+        emit RequestedLotteryWinner(requestId);
     }
 
     function fulfillRandomWords(
-        uint256 requestId,
+        uint256 /* requestId */,
         uint256[] calldata randomWords
     ) internal override {
         // pick a random number
         // do something with it
+        uint256 indexOfWinner = randomWords[0] % s_players.length;
+        address payable winner = s_players[indexOfWinner];
+        s_recentWinner = winner;
+        s_lotteryState = LotteryState.OPEN;
+        // reset the players array
+        s_players = new address payable[](0);
+        s_lastTimeStamp = block.timestamp;
+        (bool success, ) = winner.call{value: address(this).balance}("");
+        if (!success) {
+            revert Lottery__TransferFailed();
+        }
+        emit WinnerPicked(winner);
     }
 
-    // view / pure functions
+    // gettersview / pure functions
     function getEntranceFee() public view returns (uint256) {
         return i_entranceFee;
     }
@@ -81,9 +150,45 @@ contract Lottery is VRFConsumerBaseV2Plus {
         return s_players[index];
     }
 
+    function getRecentWinner() public view returns (address) {
+        return s_recentWinner;
+    }
+
+    function getLotteryState() public view returns (LotteryState) {
+        return s_lotteryState;
+    }
+
+    function getNumWords() public pure returns (uint256) {
+        return numWords;
+    }
+
+    function getInterval() public pure returns (uint256) {
+        return INTERVAL;
+    }
+
+    function getRequestConfirmations() public pure returns (uint256) {
+        return requestConfirmations;
+    }
+
+    function getPlayerNumber() public view returns (uint256) {
+        return s_players.length;
+    }
+
+    function getLastTimeStamp() public view returns (uint256) {
+        return s_lastTimeStamp;
+    }
+
+    //modifiers
     modifier enoughEntranceFee() {
         if (msg.value < i_entranceFee) {
             revert Lottery__NotEnoughEthEntered();
+        }
+        _;
+    }
+
+    modifier onlyWhenOpen() {
+        if (s_lotteryState != LotteryState.OPEN) {
+            revert Lottery__NotOpen();
         }
         _;
     }
