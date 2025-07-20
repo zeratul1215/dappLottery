@@ -27,12 +27,10 @@ contract Lottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     uint256 private immutable i_entranceFee;
     address payable[] private s_players;
     uint256 private s_subscriptionId;
-    // Sepolia coordinator.
-    address public immutable vrfCoordinator =
-        0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B;
+
     bytes32 private immutable i_keyHash =
         0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
-    uint32 private constant callbackGasLimit = 40000; // for the fulfillRandomWords function
+    uint32 private constant callbackGasLimit = 200000; // for the fulfillRandomWords function
     uint16 private constant requestConfirmations = 3;
     uint32 private constant numWords = 1;
 
@@ -50,8 +48,10 @@ contract Lottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     constructor(
         uint256 entranceFee,
-        uint64 subscriptionId
+        uint256 subscriptionId,
+        address vrfCoordinator
     ) VRFConsumerBaseV2Plus(vrfCoordinator) {
+        //provide the address of the vrfcoordinator to initialize the s_vrfCoordinator in the VRFConsumerBaseV2Plus contract
         i_entranceFee = entranceFee;
         s_subscriptionId = subscriptionId;
         s_lotteryState = LotteryState.OPEN;

@@ -3,7 +3,6 @@ import "@nomicfoundation/hardhat-ethers";
 import "@nomicfoundation/hardhat-ignition";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
-import "hardhat-deploy";
 import * as dotenv from "dotenv";
 dotenv.config();
 
@@ -20,12 +19,6 @@ const config: HardhatUserConfig = {
     ]
   },
   defaultNetwork: "hardhat",
-  namedAccounts: {
-    deployer: {
-      default: 0,
-      sepolia: 0,
-    }
-  },
   networks: {
     hardhat: {
     },
@@ -35,7 +28,7 @@ const config: HardhatUserConfig = {
     },
     sepolia: {
       url: process.env.SEPOLIA_URL || "",
-      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      accounts: process.env.PRIVATE_KEY !== undefined && process.env.PRIVATE_KEY_2 !== undefined ? [process.env.PRIVATE_KEY, process.env.PRIVATE_KEY_2] : [],
       chainId: 11155111,
       // blockConfirmations: 6,
     }
