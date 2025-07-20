@@ -17,8 +17,8 @@ const LotteryModule = buildModule("Lottery", (m) => {
 
     m.call(vrfCoordinator, "fundSubscription",[sub_id, ethers.parseEther("1")]);
     
-
-    const lottery = m.contract("Lottery", [entranceFee, sub_id, vrfCoordinator]);
+    const interval = 10; // 10 seconds
+    const lottery = m.contract("Lottery", [entranceFee, sub_id, vrfCoordinator, interval]);
     m.call(vrfCoordinator, "addConsumer", [sub_id, lottery]);
 
     return { lottery };
