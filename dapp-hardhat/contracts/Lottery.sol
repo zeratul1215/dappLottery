@@ -34,7 +34,7 @@ contract Lottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     uint16 private constant requestConfirmations = 3;
     uint32 private constant numWords = 1;
 
-    uint256 private constant INTERVAL = 1800; // 30 minutes
+    uint256 private immutable i_interval;
     uint256 private s_lastTimeStamp;
 
     //lottery variables
@@ -49,13 +49,15 @@ contract Lottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     constructor(
         uint256 entranceFee,
         uint256 subscriptionId,
-        address vrfCoordinator
+        address vrfCoordinator,
+        uint256 interval
     ) VRFConsumerBaseV2Plus(vrfCoordinator) {
         //provide the address of the vrfcoordinator to initialize the s_vrfCoordinator in the VRFConsumerBaseV2Plus contract
         i_entranceFee = entranceFee;
         s_subscriptionId = subscriptionId;
         s_lotteryState = LotteryState.OPEN;
         s_lastTimeStamp = block.timestamp;
+        i_interval = interval;
     }
 
     function enterLottery() public payable onlyWhenOpen enoughEntranceFee {
@@ -88,7 +90,7 @@ contract Lottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         returns (bool upkeepNeeded, bytes memory /* performData */)
     {
         bool isOpen = s_lotteryState == LotteryState.OPEN;
-        bool timePassed = (block.timestamp - s_lastTimeStamp) > INTERVAL;
+        bool timePassed = (block.timestamp - s_lastTimeStamp) > i_interval;
         bool hasPlayers = s_players.length > 0;
         bool hasBalance = address(this).balance > 0;
         upkeepNeeded = (isOpen && timePassed && hasPlayers && hasBalance);
@@ -162,8 +164,8 @@ contract Lottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         return numWords;
     }
 
-    function getInterval() public pure returns (uint256) {
-        return INTERVAL;
+    function getInterval() public view returns (uint256) {
+        return i_interval;
     }
 
     function getRequestConfirmations() public pure returns (uint256) {
