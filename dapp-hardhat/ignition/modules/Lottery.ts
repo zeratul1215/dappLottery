@@ -15,11 +15,12 @@ const Lottery = buildModule("Lottery", (m) => {
   let vrfCoordinator;
   let sub_id;
   const entranceFee = ethers.parseEther("0.001");
+  let interval;
   
   if(network.name == "sepolia"){
     vrfCoordinator = m.contractAt("IVRFCoordinatorV2Plus", "0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B");
     sub_id = process.env.SUBSCRIPTION_ID || 1;
-    const interval = 1800; // 30 minutes
+    interval = 1800; // 30 minutes
     lottery = m.contract("Lottery", [entranceFee, sub_id, vrfCoordinator, interval]);
   }else{
     //deploy mock vrf coordinator
@@ -30,7 +31,7 @@ const Lottery = buildModule("Lottery", (m) => {
     //fund subscription
     m.call(vrfCoordinator, "fundSubscription",[sub_id, ethers.parseEther("10")]);
 
-    const interval = 10; // 10 seconds
+    interval = 10; // 10 seconds
     lottery = m.contract("Lottery", [entranceFee, sub_id, vrfCoordinator, interval]);
     m.call(vrfCoordinator, "addConsumer", [sub_id, lottery]);
   }

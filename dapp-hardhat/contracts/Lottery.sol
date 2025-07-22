@@ -194,4 +194,8 @@ contract Lottery is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         }
         _;
     }
+
+    fallback() external payable {}
+
+    receive() external payable {}
 }
