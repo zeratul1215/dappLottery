@@ -24,7 +24,8 @@ const Lottery = buildModule("Lottery", (m) => {
     lottery = m.contract("Lottery", [entranceFee, sub_id, vrfCoordinator, interval]);
   }else{
     //deploy mock vrf coordinator
-    vrfCoordinator = m.contract("VRFCoordinatorV2Mock", [baseFee, gasPriceLink]);
+    const weiPerUnitLink = 1000000000000000000n; // 1 LINK = 1 ETH (18 decimals)
+    vrfCoordinator = m.contract("VRFCoordinatorV2_5Mock", [baseFee, gasPriceLink, weiPerUnitLink]);
     //create subscription
     const transfer = m.call(vrfCoordinator, "createSubscription");
     sub_id = m.readEventArgument(transfer, "SubscriptionCreated", 0);
