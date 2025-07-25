@@ -146,26 +146,78 @@ import hre from "hardhat";
                 await network.provider.request({method: "evm_mine",params:[]});
                 const tx = await Lottery.performUpkeep("0x");
                 const txReceipt = await tx.wait(1);
-                
-                // 解析所有事件
                 const events = txReceipt.logs.map((log: any) => {
-                    return VRFCoordinatorMock.interface.parseLog(log);
+                    try {
+                        return Lottery.interface.parseLog(log);
+                    } catch (e) {
+                        return null;
+                    }
                 });
-                console.log(events);
+                // console.log(events);
+                // const requestedEvent = events.find((event: any) => event?.name === "RequestedLotteryWinner");
+                // const requestId = requestedEvent?.args.requestId;
+                // console.log("requestId:", requestId);
+                // assert(requestId > 0);
+                
             });
         });
 
-        // describe("fulfillRandomWords", () => {
+        describe("fulfillRandomWords", () => {
 
-        //     beforeEach(async () => {
-        //         await Lottery.enterLottery({value: ethers.parseEther("0.001")});
-        //         await network.provider.send("evm_increaseTime", [11]);
-        //         await network.provider.request({method: "evm_mine",params:[]});
-        //     });
+            beforeEach(async () => {
+                await Lottery.enterLottery({value: ethers.parseEther("0.001")});
+                await network.provider.send("evm_increaseTime", [11]);
+                await network.provider.request({method: "evm_mine",params:[]});
+            });
 
-        //     it("can only be called after performUpkeep", async () => {
-        //         await expect(await VRFCoordinatorMock.fulfillRandomWords(0, Lottery.target)).to.be.revertedWithCustomError(Lottery, "nonexistent request");
-        //     });
+            it("can only be called after performUpkeep", async () => {
+                // 尝试在没有请求的情况下调用 fulfillRandomWords
+                await expect(
+                    VRFCoordinatorMock.fulfillRandomWordsWithOverride(0, Lottery.target, [123])
+                ).to.be.revertedWithCustomError(VRFCoordinatorMock, "InvalidRequest");
+            });
 
-        // });
+            it("can be called after performUpkeep", async () => {
+                // 1. 先调用 performUpkeep 创建请求
+                const tx = await Lottery.performUpkeep("0x");
+                const txReceipt = await tx.wait(1);
+                
+                // 2. 获取 requestId
+                const events = await VRFCoordinatorMock.queryFilter("RandomWordsRequested", txReceipt.blockNumber, txReceipt.blockNumber);
+                const requestId = (events[0] as any).args.requestId;
+                // console.log("requestId:", requestId);
+                
+                // 3. 验证合约状态是 CALCULATING
+                const lotteryState = await Lottery.getLotteryState();
+                assert(lotteryState.toString() === "1", "Lottery should be in CALCULATING state");
+                
+                // 4. 调用 fulfillRandomWords
+                const randomWords = [123]; // 模拟随机数
+                await VRFCoordinatorMock.fulfillRandomWordsWithOverride(requestId, Lottery.target, randomWords);
+                
+                // 5. 验证合约状态回到 OPEN
+                const newLotteryState = await Lottery.getLotteryState();
+                assert(newLotteryState.toString() === "0", "Lottery should be back to OPEN state");
+                
+                // 6. 验证有获胜者被选择
+                const recentWinner = await Lottery.getRecentWinner();
+                assert(recentWinner !== ethers.ZeroAddress, "Should have a winner");
+                
+                // 7. 验证玩家数组被重置
+                const playerCount = await Lottery.getPlayerNumber();
+                assert(playerCount.toString() === "0", "Players array should be reset");
+            });
+
+            it("reverts if called with wrong requestId", async () => {
+                // 1. 先调用 performUpkeep 创建请求
+                await Lottery.performUpkeep("0x");
+                
+                // 2. 尝试用错误的 requestId 调用 fulfillRandomWords
+                const wrongRequestId = 999;
+                await expect(
+                    VRFCoordinatorMock.fulfillRandomWordsWithOverride(wrongRequestId, Lottery.target, [123])
+                ).to.be.revertedWithCustomError(VRFCoordinatorMock, "InvalidRequest");
+            });
+
+        });
     })
