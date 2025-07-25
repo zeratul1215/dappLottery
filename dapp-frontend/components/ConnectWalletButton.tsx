@@ -1,14 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
 import { useConnect } from "wagmi";
 
 export default () => {
   const { connectors, connect } = useConnect();
-
-  useEffect(() => {
-    console.log(connectors);
-  }, [connectors]);
 
   return (
     <>
