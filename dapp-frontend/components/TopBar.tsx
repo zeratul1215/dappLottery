@@ -3,7 +3,7 @@
 import { useAccount } from "wagmi";
 import Link from "next/link";
 import ConnectWalletButton from "./ConnectWalletButton";
-import DisconnectWalletButton from "./DisconnectWalletButton";
+import WalletAddress from "./WalletAddress";
 
 export default function TopBar() {
   const { address, isConnected } = useAccount();
@@ -54,7 +54,7 @@ export default function TopBar() {
 
           {/* Connect Wallet Button */}
           <div className="flex items-center space-x-4">
-            {isConnected ? <DisconnectWalletButton /> : <ConnectWalletButton />}
+            {isConnected ? <WalletAddress address={address || ""} /> : <ConnectWalletButton />}
           </div>
         </div>
       </div>
