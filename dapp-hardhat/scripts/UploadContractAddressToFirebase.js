@@ -17,8 +17,8 @@ async function uploadData() {
     try {
         console.log("开始上传数据...");
         
-        await set(ref(db, 'contracts/lottery/1800'), {
-            address: '0x182Be0f377Aa1190e6030eA4F074FdF9D800A1eb'
+        await set(ref(db, 'contracts/lottery/300'), {
+            address: '0xcf638e23f8eE04C1630ED05c6D0B24CCBDe328F1'
         });
         
         console.log("✅ 数据上传成功！");
@@ -31,7 +31,8 @@ async function uploadData() {
 
 async function getData() {
     try {
-        const snapshot = await get(ref(db, 'users'));
+        const snapshot = await get(ref(db, "contracts/lottery"));
+        
         console.log(snapshot.val());
     } catch (error) {
         console.error("❌ 数据获取失败:", error);
@@ -40,18 +41,18 @@ async function getData() {
 }
 
 // 执行上传
-uploadData().then(() => {
-    console.log("脚本执行完成");
-    process.exit(0);
-}).catch((error) => {
-    console.error("脚本执行失败:", error);
-    process.exit(1);
-});
-
-// getData().then(() => {
+// uploadData().then(() => {
 //     console.log("脚本执行完成");
 //     process.exit(0);
 // }).catch((error) => {
 //     console.error("脚本执行失败:", error);
 //     process.exit(1);
 // });
+
+getData().then(() => {
+    console.log("脚本执行完成");
+    process.exit(0);
+}).catch((error) => {
+    console.error("脚本执行失败:", error);
+    process.exit(1);
+});

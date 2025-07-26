@@ -20,7 +20,7 @@ const Lottery = buildModule("Lottery", (m) => {
   if(network.name == "sepolia"){
     vrfCoordinator = m.contractAt("IVRFCoordinatorV2Plus", "0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B");
     sub_id = process.env.SUBSCRIPTION_ID || 1;
-    interval = 1800; // 30 minutes
+    interval = 300; // 5 minutes
     lottery = m.contract("Lottery", [entranceFee, sub_id, vrfCoordinator, interval]);
   }else{
     //deploy mock vrf coordinator
